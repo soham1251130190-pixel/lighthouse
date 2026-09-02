@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TrackSense Demo — AI Dead Reckoning Navigation</title>
+    <meta name="description" content="TrackSense Demo: AI-powered dead reckoning navigation with map-matching for GPS-denied environments.">
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <!-- App CSS -->
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- Header Bar -->
+    <header id="app-header">
+        <div class="header-left">
+            <div class="logo-mark">
+                <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+                    <circle cx="14" cy="14" r="12" stroke="url(#logoGrad)" stroke-width="2.5" fill="none"/>
+                    <path d="M14 6 L14 22 M8 10 L14 6 L20 10" stroke="url(#logoGrad)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                    <defs>
+                        <linearGradient id="logoGrad" x1="0" y1="0" x2="28" y2="28">
+                            <stop offset="0%" stop-color="#00E5A0"/>
+                            <stop offset="100%" stop-color="#00B4D8"/>
+                        </linearGradient>
+                    </defs>
+                </svg>
+            </div>
+            <h1 class="app-title">TrackSense <span class="title-accent">Demo</span></h1>
+        </div>
+        <div class="header-center">
+            <div id="mode-badge" class="mode-badge mode-gps">
+                <span class="badge-dot"></span>
+                <span id="mode-label">GPS-Aided</span>
+            </div>
+        </div>
+        <div class="header-right">
+            <div class="speed-control">
+                <label for="speed-slider">Speed</label>
+                <input type="range" id="speed-slider" min="0.5" max="5" step="0.5" value="1">
+                <span id="speed-value">1×</span>
+            </div>
+            <button id="reset-btn" class="btn btn-ghost" title="Reset Simulation">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2v5h5M14 14V9H9" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M13.5 5A6.5 6.5 0 0 0 3 3.5L2 7M2.5 11A6.5 6.5 0 0 0 13 12.5L14 9" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Reset
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main id="app-main">
+        <!-- Map Container -->
+        <div id="map-container">
+            <div id="map"></div>
+
+            <!-- Tunnel Toggle Overlay -->
+            <div id="tunnel-control">
+                <button id="tunnel-btn" class="btn btn-tunnel">
+                    <svg id="tunnel-icon-enter" width="20" height="20" viewBox="0 0 20 20" fill="none">
+                        <path d="M3 17V7a7 7 0 0 1 14 0v10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                        <path d="M6 17V9a4 4 0 0 1 8 0v8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
+                        <line x1="1" y1="17" x2="19" y2="17" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                    </svg>
+                    <svg id="tunnel-icon-exit" width="20" height="20" viewBox="0 0 20 20" fill="none" style="display:none">
+                        <circle cx="10" cy="8" r="4" stroke="currentColor" stroke-width="1.8" fill="none"/>
+                        <path d="M10 12v4M7 18h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                        <path d="M3 4l2 2M17 4l-2 2M10 1v2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
+                    </svg>
+                    <span id="tunnel-btn-text">Enter Tunnel</span>
+                </button>
+            </div>
+
+            <!-- Map Legend -->
+            <div id="map-legend">
+                <div class="legend-item" id="legend-vehicle">
+                    <span class="legend-dot dot-blue"></span>
+                    <span>Vehicle (GPS)</span>
+                </div>
+                <div class="legend-item legend-hidden" id="legend-naive">
+                    <span class="legend-dot dot-red"></span>
+                    <span>Naive Dead Reckoning</span>
+                </div>
+                <div class="legend-item legend-hidden" id="legend-ai">
+                    <span class="legend-dot dot-green"></span>
+                    <span>TrackSense AI + Map-Matching</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats Panel -->
+        <aside id="stats-panel">
+            <div class="panel-section">
+                <h2 class="panel-heading">Navigation Status</h2>
+                <div class="stat-cards">
+                    <div class="stat-card">
+                        <div class="stat-label">Signal Source</div>
+                        <div class="stat-value" id="stat-signal">
+                            <span class="signal-icon signal-strong">
+                                <svg width="18" height="18" viewBox="0 0 18 18" fill="currentColor">
+                                    <rect x="1" y="12" width="3" height="5" rx="0.5"/>
+                                    <rect x="5.5" y="9" width="3" height="8" rx="0.5"/>
+                                    <rect x="10" y="5" width="3" height="12" rx="0.5"/>
+                                    <rect x="14.5" y="1" width="3" height="16" rx="0.5"/>
+                                </svg>
+                            </span>
+                            GPS Satellite
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Position Accuracy</div>
+                        <div class="stat-value" id="stat-accuracy">±2.5m</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Vehicle Speed</div>
+                        <div class="stat-value" id="stat-speed">0 km/h</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Heading</div>
+                        <div class="stat-value" id="stat-heading">0°</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Drift Section (shown during tunnel) -->
+            <div class="panel-section" id="drift-section" style="display:none">
+                <h2 class="panel-heading">Drift Analysis</h2>
+                <div class="drift-meter">
+                    <div class="drift-header">
+                        <span class="drift-label">Position Drift</span>
+                        <span class="drift-value" id="drift-value">0.0 m</span>
+                    </div>
+                    <div class="drift-bar-track">
+                        <div class="drift-bar-fill" id="drift-bar"></div>
+                    </div>
+                    <div class="drift-limits">
+                        <span>0m</span>
+                        <span>50m</span>
+                        <span>100m+</span>
+                    </div>
+                </div>
+
+                <div class="drift-comparison">
+                    <div class="drift-comp-item">
+                        <span class="legend-dot dot-red"></span>
+                        <div>
+                            <div class="comp-label">Naive DR Error</div>
+                            <div class="comp-value" id="naive-error">0.0 m</div>
+                        </div>
+                    </div>
+                    <div class="drift-comp-item">
+                        <span class="legend-dot dot-green"></span>
+                        <div>
+                            <div class="comp-label">TrackSense Error</div>
+                            <div class="comp-value" id="ai-error">0.0 m</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Drift Chart -->
+                <div class="chart-container">
+                    <h3 class="chart-title">Drift Over Time</h3>
+                    <canvas id="drift-chart" width="320" height="160"></canvas>
+                </div>
+            </div>
+
+            <!-- Info Section -->
+            <div class="panel-section" id="info-section">
+                <h2 class="panel-heading">How It Works</h2>
+                <div class="info-steps">
+                    <div class="info-step">
+                        <div class="step-num">1</div>
+                        <div class="step-text">
+                            <strong>GPS-Aided Mode</strong>
+                            <p>Vehicle position tracked via satellite GPS with high accuracy.</p>
+                        </div>
+                    </div>
+                    <div class="info-step">
+                        <div class="step-num">2</div>
+                        <div class="step-text">
+                            <strong>Signal Loss (Tunnel)</strong>
+                            <p>GPS becomes unavailable. Two strategies compared in real-time.</p>
+                        </div>
+                    </div>
+                    <div class="info-step">
+                        <div class="step-num">3</div>
+                        <div class="step-text">
+                            <strong>Naive Dead Reckoning</strong>
+                            <p>Simple sensor integration drifts rapidly due to accumulated noise.</p>
+                        </div>
+                    </div>
+                    <div class="info-step">
+                        <div class="step-num">4</div>
+                        <div class="step-text">
+                            <strong>TrackSense AI</strong>
+                            <p>AI-powered map-matching constrains drift, maintaining road accuracy.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+    </main>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- App JS -->
+    <script src="js/utils.js"></script>
+    <script src="js/route.js"></script>
+    <script src="js/map.js"></script>
+    <script src="js/stats.js"></script>
+    <script src="js/simulation.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
