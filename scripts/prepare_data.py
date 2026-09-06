@@ -10,6 +10,7 @@ sys.path.insert(0, str(DATA_MODULE))
 from loader import load_io_vnbd
 from projection import latlon_to_local_xy
 from augmentation import add_sensor_augmentation
+from gnss_quality import calculate_gnss_quality
 
 
 OUTPUT_FILE = PROJECT_ROOT / "data" / "processed" / "S1_training.csv"
@@ -35,6 +36,29 @@ def prepare_dataset():
 
     print(f"X range: {x_m.min():.2f} to {x_m.max():.2f} m")
     print(f"Y range: {y_m.min():.2f} to {y_m.max():.2f} m")
+
+        # GNSS QUALITY CHECK
+    print("\n===== GNSS QUALITY CHECK =====")
+
+    (
+        gps_jump_m,
+        expected_motion_m,
+        motion_ratio,
+        gnss_outlier,
+    ) = calculate_gnss_quality(
+        x=df["x_m"].to_numpy(),
+        y=df["y_m"].to_numpy(),
+        speed_kmh=df["GPS SPEED (Kmh)"].to_numpy(),
+        timestamps=df["timestamp"].values,
+    )
+
+    df["gps_jump_m"] = gps_jump_m
+    df["expected_motion_m"] = expected_motion_m
+    df["motion_ratio"] = motion_ratio
+    df["gnss_outlier"] = gnss_outlier
+
+    print(f"GNSS outliers detected: {gnss_outlier.sum()}")
+    print(f"Outlier percentage: {gnss_outlier.mean() * 100:.2f}%")
 
     # SENSOR AUGMENTATION
     print("\n===== SENSOR AUGMENTATION =====")

@@ -200,21 +200,14 @@ if __name__ == "__main__":
         f"{augmented_gravity_magnitude.mean():.6f} m/s²"
     )
 
-max_difference = np.max(
-    np.abs(
-        original_gravity_magnitude
-        - augmented_gravity_magnitude
+    max_difference = np.max(
+        np.abs(
+            original_gravity_magnitude
+            - augmented_gravity_magnitude
+        )
     )
-)
 
-max_difference = np.max(
-    np.abs(
-        original_gravity_magnitude
-        - augmented_gravity_magnitude
+    print(
+        f"Maximum magnitude difference: "
+        f"{max_difference:.10f} m/s²"
     )
-)
-
-print(
-    f"Maximum magnitude difference: "
-    f"{max_difference:.10f} m/s²"
-)
